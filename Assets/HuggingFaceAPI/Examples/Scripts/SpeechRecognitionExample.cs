@@ -2,6 +2,7 @@ using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Audio;
 
 namespace HuggingFace.API.Examples {
     public class SpeechRecognitionExample : MonoBehaviour {

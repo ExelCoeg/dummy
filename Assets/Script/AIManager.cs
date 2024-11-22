@@ -1,16 +1,18 @@
 
-using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
 using System.Text;
 using System.Collections.Generic;
+using System;
 public class AIManager : MonoBehaviour
 {
     public static AIManager instance;
     public string generatedText;
     public List<string> themes;
     // Replace with your Hugging Face API token
+    #region HUGGINGFACE_API_TEXT_GENERATION
     private string apiToken = "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";
     
     // URL of the Hugging Face model
@@ -24,54 +26,67 @@ public class AIManager : MonoBehaviour
         }
     }
     
-    // Method to call the API
-    public string GenerateText(string prompt)
-    {
-        StartCoroutine(SendRequest(prompt));
-        return generatedText;
-    }
     public string GetTheme(){
-        return themes[Random.Range(0, themes.Count)];
+        return themes[UnityEngine.Random.Range(0, themes.Count)];
     }
-    private IEnumerator SendRequest(string prompt)
+    public async Task<string> GenerateText(string prompt)
     {
-
-        // JSON payload
         var payload = new { inputs = prompt };
         string jsonPayload = JsonConvert.SerializeObject(payload);
 
-        // Create request
-        UnityWebRequest request = new UnityWebRequest(apiUrl, "POST");
+        using UnityWebRequest request = new UnityWebRequest(apiUrl, "POST")
+        {
+            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(jsonPayload)),
+            downloadHandler = new DownloadHandlerBuffer()
+        };
 
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-
-        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-
-        request.downloadHandler = new DownloadHandlerBuffer();
-        
-        // Set headers
         request.SetRequestHeader("Content-Type", "application/json");
         request.SetRequestHeader("Authorization", $"Bearer {apiToken}");
-
-        // Send request and wait for response
-        print("Sending request...");
-        yield return request.SendWebRequest();  
+        
+        print("Sending Request....");
+        await request.SendWebRequest();
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            print("Success");
-            // Parse the response as an array
-            var responses = JsonConvert.DeserializeObject<InferenceResponse[]>(request.downloadHandler.text);
-            // generatedText = responses[0].GeneratedText.Split('\n')[1];
+            print("Success!");
+            var responses = JsonConvert.DeserializeObject<List<InferenceResponse>>(request.downloadHandler.text);
+            // generatedText = responses[0].GeneratedText.Split("\n")[0];
             generatedText = responses[0].GeneratedText;
-            print(generatedText);
-
+            return generatedText;
         }
         else
         {
             Debug.LogError("Request failed: " + request.error);
+            return "Error: " + request.error;
         }
     }
+    #endregion
+
+    #region API_GEMINI_TEXT_GENERATION
+
+    [SerializeField] private string gasURL = "https://script.google.com/macros/s/AKfycbztoFpZQSrBo1PawvMQA9D3oxm1txMrJVgJ9OHbGR9NJ4LANKwIRZgLiHjpw-nCV4EVzQ/exec";
+    // [SerializeField] private string prompt;
+
+
+    public async Task<String> SendDataToGAS(string prompt){
+        WWWForm form = new WWWForm();
+        form.AddField("parameter",prompt);
+        UnityWebRequest www = UnityWebRequest.Post(gasURL,form);
+
+        await www.SendWebRequest();
+        
+        string response = "";
+
+        if(www.result == UnityWebRequest.Result.Success){
+            response = www.downloadHandler.text;
+
+        }
+        else{
+            response = "There was an error";
+        }
+        return response;
+    }
+    #endregion
 }
 
 // Class to match response JSON structure
